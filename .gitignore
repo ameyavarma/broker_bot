@@ -1,0 +1,26 @@
+# Virtual environment (machine-specific; recreate from requirements.txt)
+.venv/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Local secrets / config
+.env
+
+# Generated output (CONFIDENTIAL financial data -- never commit)
+output_snapshots/
+output_portfolio/
+output*/
+
+# Any CSV anywhere: this project's CSVs are real portfolio data (e.g. the
+# boss's PricesDeltas sample in the root). Whitelist deliberately if a
+# non-confidential CSV ever needs committing.
+*.csv
+
+# Boss's proprietary strategy docs -- never commit
+OptionFunctions*.txt
+
+# Editor folders
+.vscode/
+.idea/

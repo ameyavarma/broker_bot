@@ -1,0 +1,55 @@
+POSITIONS.CSV - COLUMN GUIDE
+============================
+
+What each column in positions.csv means, for reading the file at a glance.
+
+The file uses ONE wide layout that covers every instrument type, so any single
+row leaves the fields that don't apply to it blank. An empty cell just means
+"not applicable to this instrument" - it is NOT an error or missing data.
+
+Two example rows are used below:
+  OPTION row = 1 AAPL call option
+  STOCK  row = 520 AAPL shares, held short
+
+
+COLUMN            OPTION ROW              STOCK ROW       MEANING
+----------------  ----------------------  --------------  ------------------------------------------
+account           DUQ490311               DUQ490311       IBKR account ID
+conId             675814491               265598          IBKR's unique contract ID
+symbol            AAPL                    AAPL            Ticker / underlying
+secType           OPT                     STK             Security type (decides which fields apply)
+localSymbol       AAPL 260618C00310000    AAPL            IBKR's exact contract name (see notes)
+tradingClass      AAPL                    NMS             Listing / trading group
+right             C                       (blank)         Call or Put - options only
+strike            310.0                   0.0             Strike price - options only
+expiry            20260618                (blank)         Expiration (YYYYMMDD) - options/futures
+multiplier        100                     (blank)         Shares per contract - options/futures
+exchange          (blank)                 NASDAQ          Routing / listing exchange
+primaryExchange   (blank)                 (blank)         Primary listing venue
+currency          USD                     USD             Trading currency
+secId             (blank)                 (blank)         CUSIP / ISIN - bonds etc. only
+secIdType         (blank)                 (blank)         Which ID scheme (blank if no secId)
+comboLegsDescrip  (blank)                 (blank)         Spread-leg description - combos only
+comboLegs         (blank)                 (blank)         Serialized spread legs - combos only
+position          1.0                     -520.0          Quantity held (negative = short)
+avgCost           796.04825               311.7495387     Average cost basis per unit (see notes)
+
+
+NOTES
+-----
+localSymbol (the standard OCC option symbol) encodes the whole contract:
+
+    AAPL 260618C00310000  =  AAPL  +  2026-06-18 expiry  +  C (Call)  +  strike 310.000
+
+avgCost is the average cost basis PER UNIT, with commissions folded in:
+
+  - Option = 796.05, not 7.95, because it is per contract INCLUDING the x100
+    multiplier:   $7.95 premium x 100 = $795   +   ~$1.05 commission   =   ~796.05
+
+  - Short stock = 311.75 = the average price the shares were SOLD at to open the
+    short (~311.76), net of ~$0.01/share commission.  (position = -520 means short.)
+
+
+Why there are blank cells: the CSV has one uniform set of columns for ALL
+instrument types, so each row fills only the fields relevant to it and leaves
+the rest blank. Blanks mean "not applicable," not missing or broken data.

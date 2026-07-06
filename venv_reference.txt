@@ -1,0 +1,41 @@
+VIRTUAL ENVIRONMENT — QUICK REFERENCE
+=====================================
+
+Name / location:
+    .venv   (a folder in the project root: broker_bot\.venv)
+    Built with Windows Python 3.13.
+
+----------------------------------------------------------------
+ACTIVATE  (run from inside the broker_bot folder)
+----------------------------------------------------------------
+
+PowerShell:
+    .\.venv\Scripts\Activate.ps1
+
+Command Prompt (cmd.exe):
+    .venv\Scripts\activate.bat
+
+When active, your prompt shows a (.venv) prefix, e.g.:
+    (.venv) C:\users\ameya\documents\github\broker_bot>
+
+----------------------------------------------------------------
+DEACTIVATE
+----------------------------------------------------------------
+    deactivate
+
+----------------------------------------------------------------
+NOTES
+----------------------------------------------------------------
+- PowerShell may block the activate script with an error like
+  "running scripts is disabled on this system." If so, run this
+  once in the same window, then activate:
+      Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+
+- You don't HAVE to activate to run code. You can always call the
+  venv's Python directly:
+      .venv\Scripts\python.exe test_connection.py
+
+- To recreate this environment
+      py -m venv .venv
+      .venv\Scripts\activate
+      pip install -r requirements.txt

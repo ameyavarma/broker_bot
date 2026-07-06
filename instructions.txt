@@ -1,0 +1,38 @@
+CREATING VENV (& Installing Requirements, 1 Time)
+---------------
+py -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+
+
+ACTIVATING VENV (do this before running the software. Also, use CMD, not PowerShell)
+----------------
+Command Prompt (cmd):
+    .venv\Scripts\activate
+then, to deactivate the venv:
+    deactivate
+
+
+ENABLE API ON IBKR TWS
+----------------
+Settings Widget → API → Settings → "Enable ActiveX and Socket Clients"
+Then, API →  Precautions → make sure "Bypass Order Precautions for API Orders" is on, should be by default I think
+
+
+DIRECTORY
+----------------
+/core - contains API code libraries
+/output_portfolio - output csvs of portfolio.py (shows Delta, Bid, Ask, Position, Avg Price, Underlying)
+
+CODE TO RUN
+----------------
+python portfolio.py - downloads the csv data that IBKR was dropping
+python options_order.py - runs options order functions
+
+
+
+
+
+"Bypass Order Precautions for API Orders" is enabled in his TWS Global Configuration → API → Precautions, per IBKR's docs. Our status report would surface such a rejection verbatim, but he should set that (or appropriate limits) up front.
+
+

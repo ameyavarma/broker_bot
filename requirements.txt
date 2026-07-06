@@ -1,0 +1,12 @@
+# Direct dependencies
+ib_async==2.1.0
+pandas==3.0.3
+python-dotenv==1.2.2
+
+# Transitive deps (pulled in automatically; pinned for reproducible installs)
+aeventkit==2.1.0
+nest-asyncio==1.6.0
+numpy==2.4.6
+python-dateutil==2.9.0.post0
+six==1.17.0
+tzdata==2025.3
