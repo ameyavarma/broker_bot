@@ -81,7 +81,22 @@ def _is_ready(ticker):
     return True
 
 
-def fetch_quotes(ib, contracts, wait=15.0, generic_ticks=""):
+def _stream_once(ib, contracts, wait, generic_ticks):
+    """Subscribe to each contract, poll until every ticker is ready (or the
+    `wait` cap), cancel the streams, and return the captured tickers."""
+    tickers = [ib.reqMktData(c, generic_ticks, False, False) for c in contracts]
+    waited = 0.0
+    while waited < wait:
+        ib.sleep(0.25)
+        waited += 0.25
+        if all(_is_ready(t) for t in tickers):
+            break
+    for c in contracts:
+        ib.cancelMktData(c)
+    return tickers
+
+
+def fetch_quotes(ib, contracts, wait=15.0, generic_ticks="", progress=None):
     """Live or delayed market-data snapshot for each contract, keyed by conId.
 
     Uses STREAMING market data (reqMktData), not one-shot snapshots: delayed
@@ -100,7 +115,17 @@ def fetch_quotes(ib, contracts, wait=15.0, generic_ticks=""):
     delayed beforehand via ib.reqMarketDataType() -- 1=live, 3=delayed,
     4=delayed-frozen.
     """
-    contracts = list(contracts)
+    # On multi-account logins the same instrument shows up once per account
+    # that holds it. ib_async keys market-data subscriptions by contract, so
+    # duplicate reqMktData/cancelMktData pairs are redundant -- the repeat
+    # cancel is what printed the noisy (harmless) "cancelMktData: No reqId
+    # found" lines. Subscribe once per conId.
+    seen, unique = set(), []
+    for c in contracts:
+        if c.conId not in seen:
+            seen.add(c.conId)
+            unique.append(c)
+    contracts = unique
     if not contracts:
         return {}
     # Keep the exchange exactly as positions() returned it, only filling in
@@ -115,26 +140,44 @@ def fetch_quotes(ib, contracts, wait=15.0, generic_ticks=""):
     # IBKR caps concurrent market-data lines (~100 by default); subscribing to
     # everything at once breaks on big requests (e.g. OTM ladders on underlyings
     # with daily expiries). Work in batches comfortably under the cap.
+    # (_stream_once polls rather than a single fixed sleep: on unsubscribed
+    # accounts IBKR first bounces the request (10089/10091), THEN falls back
+    # to the delayed feed (10167) -- and that fallback can take seconds, so a
+    # short fixed wait sometimes captured the tickers while still empty.)
     quotes = {}
     BATCH = 75
     for start in range(0, len(contracts), BATCH):
         batch = contracts[start:start + BATCH]
-        tickers = [ib.reqMktData(c, generic_ticks, False, False) for c in batch]
-        # Poll rather than a single fixed sleep: on unsubscribed (paper)
-        # accounts IBKR first bounces the request (errors 10089/10091), THEN
-        # falls back to the delayed feed (10167) -- and that fallback can take
-        # several seconds, so a short fixed wait sometimes captures the tickers
-        # while still empty. `wait` caps each batch; we move on as soon as
-        # every ticker in the batch is filled.
-        waited = 0.0
-        while waited < wait:
-            ib.sleep(0.25)
-            waited += 0.25
-            if all(_is_ready(t) for t in tickers):
+        quotes.update({t.contract.conId: t
+                       for t in _stream_once(ib, batch, wait, generic_ticks)})
+
+    # -- targeted retries for options missing their greeks -----------------------
+    # The model-greeks message (delta / IV / undPrice) is its own delivery and
+    # can individually lag or drop, especially on the delayed feed. A FRESH
+    # subscription restarts delivery and usually succeeds at once, so options
+    # still missing greeks get re-requested up to GREEK_RETRIES times. Skipped
+    # when NO option got greeks at all (feed simply isn't serving them, e.g.
+    # market closed) -- retrying then would only stall.
+    GREEK_RETRIES = 2
+
+    def _opt_no_greeks(t):
+        return t.contract.secType in ("OPT", "FOP") and t.modelGreeks is None
+
+    got_any_greeks = any(t.contract.secType in ("OPT", "FOP")
+                         and t.modelGreeks is not None for t in quotes.values())
+    if got_any_greeks:
+        for attempt in range(1, GREEK_RETRIES + 1):
+            missing = [t.contract for t in quotes.values() if _opt_no_greeks(t)]
+            if not missing:
                 break
-        quotes.update({t.contract.conId: t for t in tickers})
-        for c in batch:
-            ib.cancelMktData(c)
+            if progress:
+                progress(f"{len(missing)} options missing greeks -- "
+                         f"retry {attempt} of {GREEK_RETRIES}")
+            for start in range(0, len(missing), BATCH):
+                batch = missing[start:start + BATCH]
+                quotes.update({t.contract.conId: t
+                               for t in _stream_once(ib, batch, wait,
+                                                     generic_ticks)})
     return quotes
 
 

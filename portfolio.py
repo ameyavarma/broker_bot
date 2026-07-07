@@ -22,16 +22,25 @@ from export_portfolio import build_portfolio_df, PortfolioWriter
 def main():
     port, live = console.prompt_account_mode(config.IB_PORT_PAPER,
                                              config.IB_PORT_LIVE)
+    account = console.prompt_account_id(default=config.IB_ACCOUNT)
     md_type = console.prompt_market_data_type(default="1" if live else "2")
     try:
         with connection.connect(port=port) as ib:
             ib.reqMarketDataType(md_type)
-            print(f"Connected to {ib.managedAccounts()}. Pulling positions...")
-            positions = ib.positions(config.IB_ACCOUNT)
+            accounts = ib.managedAccounts()
+            # Advisor logins manage dozens of accounts; don't dump them all.
+            shown = accounts if len(accounts) <= 8 else f"{len(accounts)} accounts"
+            which = f"positions for {account}" if account else "positions (all accounts)"
+            print(f"Connected to {shown}. Pulling {which}...")
+            if account and account not in accounts:
+                print(f"  WARNING: {account} is not among this login's "
+                      f"accounts -- the result will be empty. Check the ID.")
+            positions = ib.positions(account)
             contracts = [p.contract for p in positions]
             print(f"  {len(positions)} positions; requesting market data "
                   f"(type {md_type})...")
-            quotes = fetchers.fetch_quotes(ib, contracts)
+            quotes = fetchers.fetch_quotes(ib, contracts,
+                                           progress=lambda m: print(f"  {m}"))
 
             # --- H+ data DISABLED -------------------------------------------------
             # Output is trimmed to columns A-G (see COLUMNS in export_portfolio.py),

@@ -19,6 +19,21 @@ def prompt_account_mode(paper_port, live_port):
         print("  Please type 1 or 2.")
 
 
+def prompt_account_id(default=""):
+    """Ask which account's data to pull, for logins that manage many accounts.
+    Empty answer = all accounts. `default` (usually IB_ACCOUNT from .env)
+    pre-fills the prompt so a bare Enter picks it."""
+    hint = f"Enter = {default}" if default else "Enter = all accounts"
+    while True:
+        raw = input(f"\nAccount ID to pull (e.g. U1234567) [{hint}]: ").strip()
+        if not raw:
+            return default
+        if raw.isalnum():
+            return raw.upper()
+        print("  Account IDs are letters+digits, e.g. U1234567 "
+              "(or press Enter).")
+
+
 def prompt_market_data_type(default="1"):
     """Ask live vs delayed market data. Returns the IBKR market-data type
     (1 = live real-time, 4 = delayed-frozen). `default` picks which choice

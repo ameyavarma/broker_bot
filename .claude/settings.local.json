@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"/mnt/c/Program Files/Git/cmd/git.exe\" -C \"C:\\\\\\\\users\\\\\\\\ameya\\\\\\\\documents\\\\\\\\github\\\\\\\\broker_bot\" push --force origin main)",
+      "Bash(git ls-remote *)"
+    ]
+  }
+}

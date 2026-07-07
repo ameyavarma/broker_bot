@@ -6,6 +6,10 @@ PREVIEW (every candidate leg with keep/skip reason, the DELTA_SUM sizing math,
 the exact orders and their premium) -> explicit "yes" -> transmit -> per-order
 status report. Nothing is sent without the confirmation step.
 
+Transmit mode "stage in TWS" places every order with transmit=False: TWS
+holds them (pink rows with a Transmit button) and nothing reaches the
+exchange until each is transmitted manually in the TWS UI.
+
     python options_order.py
 """
 import sys
@@ -94,10 +98,25 @@ def prompt_inputs():
                           _parse_int, "3")
     expire = _prompt("Order lifetime in minutes [Enter = rest of day]",
                      _parse_expire, "30")
+    staged = _prompt_transmit_mode()
     # Default the data feed to the natural pairing: real-time on a live
     # (subscribed) account, free delayed on paper. Both stay selectable.
     md_type = console.prompt_market_data_type(default="1" if live else "2")
-    return port, func, ticker, right, num, ivt, num_otm, expire, md_type
+    return port, func, ticker, right, num, ivt, num_otm, expire, staged, md_type
+
+
+def _prompt_transmit_mode():
+    """Send-now vs stage-in-TWS. Returns True for staged (transmit=False:
+    TWS holds the orders for manual review; nothing reaches the exchange)."""
+    print("\nTransmit mode:")
+    print("  1) Send to exchange now")
+    print("  2) Stage in TWS only -- orders appear on the Orders tab with a")
+    print("     Transmit button; NOTHING is sent until you click it per order")
+    while True:
+        m = input("Enter 1 or 2 [default 1]: ").strip() or "1"
+        if m in ("1", "2"):
+            return m == "2"
+        print("  Please type 1 or 2.")
 
 
 # --- preview ------------------------------------------------------------------
@@ -111,7 +130,7 @@ def _expiry(e):
     return f"{e[:4]}-{e[4:6]}-{e[6:]}"
 
 
-def print_plan(plan, expire_minutes=None):
+def print_plan(plan, expire_minutes=None, staged=False):
     right_word = "PUT" if plan.right == "P" else "CALL"
     print(f"\n=== {plan.strategy} plan: SELL {plan.ticker} {right_word}s ===")
     otm = f"   OTM strikes/expiry: {plan.num_otm}" if plan.num_otm else ""
@@ -161,6 +180,15 @@ def print_plan(plan, expire_minutes=None):
         print("  Unfilled orders stay working until today's session close (DAY).")
     print("  Note: sell-limit AT the ask is passive -- fills need a buyer at "
           "that price; away from market hours orders rest until the session opens.")
+    if staged:
+        print("\n  STAGED MODE: orders will be HELD at TWS (API tab), each "
+              "with a\n  Transmit button. Nothing reaches the exchange until "
+              "you click\n  Transmit per order. A TWS restart discards held "
+              "orders.")
+        if expire_minutes:
+            print(f"  NOTE: the {expire_minutes}-minute auto-cancel clock is "
+                  f"fixed NOW (at ~{cancel_at.strftime('%H:%M:%S')});\n  an "
+                  "order transmitted after that time expires immediately.")
 
     dropped = [leg for leg in plan.legs if leg.data_gap]
     if dropped:
@@ -174,10 +202,16 @@ def print_plan(plan, expire_minutes=None):
 
 # --- confirmation gate -----------------------------------------------------------
 
-def confirm_transmission(paper, plan):
+def confirm_transmission(paper, plan, staged=False):
     """The gate between preview and transmission. Paper: type 'yes'. Live:
     a REAL MONEY banner, and the user must retype the total contract count
-    from the preview -- a slow-down-and-look guard against autopilot."""
+    from the preview -- a slow-down-and-look guard against autopilot.
+    Staged: a simple 'yes' even on live -- nothing transmits; the real gate
+    becomes clicking Transmit on each held order in TWS."""
+    if staged:
+        answer = input("\nStage these orders in TWS (nothing is sent to the "
+                       "exchange)? Type yes: ").strip().lower()
+        return answer == "yes"
     if paper:
         answer = input("\nTransmit these orders? Type yes to send: ").strip().lower()
         if answer != "yes":
@@ -194,7 +228,8 @@ def confirm_transmission(paper, plan):
 # --- main ----------------------------------------------------------------------
 
 def main():
-    port, func, ticker, right, num, ivt, num_otm, expire, md_type = prompt_inputs()
+    (port, func, ticker, right, num, ivt, num_otm, expire, staged,
+     md_type) = prompt_inputs()
     try:
         with connection.connect(port=port) as ib:
             ib.reqMarketDataType(md_type)
@@ -212,19 +247,30 @@ def main():
             else:
                 plan = option_strategies.sell_out_of_money_option(
                     ib, ticker, right, num, ivt, num_otm, **kwargs)
-            print_plan(plan, expire)
+            print_plan(plan, expire, staged)
             if not plan.selected:
                 return
             if plan.qty_per_leg <= 0:
                 print("\nComputed quantity is 0 -- nothing to transmit.")
                 return
 
-            if not confirm_transmission(paper, plan):
+            if not confirm_transmission(paper, plan, staged):
                 print("Not confirmed -- nothing was transmitted.")
                 return
 
-            print("\nTransmitting...")
-            results = order_exec.execute_sell_plan(ib, plan, expire_minutes=expire)
+            print("\nStaging..." if staged else "\nTransmitting...")
+            results = order_exec.execute_sell_plan(ib, plan, expire_minutes=expire,
+                                                   staged=staged)
+            if staged:
+                print("Orders staged (held at TWS, NOT sent to the exchange):")
+                for leg, trade in results:
+                    print(f"  {plan.ticker} {_expiry(leg.expiry)} "
+                          f"{leg.strike:g} {right}  staged "
+                          f"(order id {trade.order.orderId})")
+                print("\nIn TWS: API -> click Transmit to send, or "
+                      "Cancel/discard.\nHeld orders survive this "
+                      "script exiting but are LOST if TWS restarts.")
+                return
             print("Order status:")
             for leg, trade in results:
                 print(f"  {plan.ticker} {_expiry(leg.expiry)} {leg.strike:g} {right}  "
