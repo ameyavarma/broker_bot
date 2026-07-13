@@ -23,6 +23,7 @@ IB_PORT_PAPER = int(os.getenv("IB_PORT_PAPER", "7497"))
 # Separate top-level folders per product, for clarity.
 OUTPUT_SNAPSHOTS_DIR = Path(os.getenv("OUTPUT_SNAPSHOTS_DIR", "output_snapshots"))
 OUTPUT_PORTFOLIO_DIR = Path(os.getenv("OUTPUT_PORTFOLIO_DIR", "output_portfolio"))
+OUTPUT_BASKETS_DIR = Path(os.getenv("OUTPUT_BASKETS_DIR", "output_baskets"))
 
 # --- Market data ---
 WATCHLIST = [s.strip() for s in os.getenv("WATCHLIST", "").split(",") if s.strip()]

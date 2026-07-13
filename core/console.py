@@ -19,13 +19,14 @@ def prompt_account_mode(paper_port, live_port):
         print("  Please type 1 or 2.")
 
 
-def prompt_account_id(default=""):
-    """Ask which account's data to pull, for logins that manage many accounts.
-    Empty answer = all accounts. `default` (usually IB_ACCOUNT from .env)
-    pre-fills the prompt so a bare Enter picks it."""
+def prompt_account_id(default="", what="pull"):
+    """Ask which account to target, for logins that manage many accounts.
+    Empty answer = all accounts (data pulls) / TWS default (orders).
+    `default` pre-fills the prompt so a bare Enter picks it; `what` is the
+    verb shown ("pull" for data scripts, "trade" for order scripts)."""
     hint = f"Enter = {default}" if default else "Enter = all accounts"
     while True:
-        raw = input(f"\nAccount ID to pull (e.g. U1234567) [{hint}]: ").strip()
+        raw = input(f"\nAccount ID to {what} (e.g. U1234567) [{hint}]: ").strip()
         if not raw:
             return default
         if raw.isalnum():

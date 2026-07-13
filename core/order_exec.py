@@ -19,18 +19,27 @@ def good_till(minutes):
     return when.strftime("%Y%m%d-%H:%M:%S")
 
 
-def execute_sell_plan(ib, plan, expire_minutes=None, wait=10.0, staged=False):
+def execute_sell_plan(ib, plan, expire_minutes=None, wait=10.0, staged=False,
+                      account=None):
     """Place one SELL limit order per selected leg, at that leg's ask price
     (per the spec: "sell ... at the ask price").
 
     expire_minutes: auto-cancel unfilled orders after this many minutes (GTD);
     None = DAY (unfilled orders die at the session close).
 
-    staged: place with transmit=False -- TWS holds the orders (pink rows on
-    the Orders tab, each with a Transmit button) and NOTHING reaches the
-    exchange until the user clicks Transmit per order. Held orders survive
-    this script disconnecting but are discarded if TWS restarts. TWS sends
-    no status events while an order is held, so the status poll is skipped.
+    staged: place with transmit=False -- TWS holds the orders (API tab, each
+    with a Transmit button) and NOTHING reaches the exchange until the user
+    clicks Transmit per order. Held orders survive this script disconnecting
+    but are discarded if TWS restarts. TWS sends no status events while an
+    order is held, so the status poll is skipped.
+
+    account: the account the orders target -- required on logins that manage
+    several accounts (must be one this login manages, or IBKR rejects the
+    order); None = the login's TWS default account.
+
+    Every order carries orderRef=plan.strategy so the batch is labeled in
+    TWS's "Order Ref" column -- the API has no BasketTag equivalent, so this
+    is the closest thing to the basket-file grouping.
 
     Returns [(leg, Trade)]. We poll up to `wait` seconds for order statuses
     to settle; orders that don't fill immediately simply stay working at
@@ -45,7 +54,9 @@ def execute_sell_plan(ib, plan, expire_minutes=None, wait=10.0, staged=False):
         tif = dict(tif="DAY")
     trades = [(leg, ib.placeOrder(leg.contract,
                                   LimitOrder("SELL", plan.qty_per_leg, leg.ask,
-                                             transmit=not staged, **tif)))
+                                             transmit=not staged,
+                                             account=account or "",
+                                             orderRef=plan.strategy, **tif)))
               for leg in plan.selected]
     if staged:
         ib.sleep(1)  # let TWS acknowledge receipt before we report/disconnect

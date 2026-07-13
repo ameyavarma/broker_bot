@@ -3,7 +3,8 @@
 Parallel to snapshot.py, but produces his single formatted file in its own
 output folder. Shares the same foundation (config / connection / fetchers).
 
-    python portfolio.py
+    python portfolio.py            # runs with the HARDCODED settings below
+    python portfolio.py --prompts  # asks interactively instead
 """
 import sys
 from pathlib import Path
@@ -19,11 +20,31 @@ import borrow  # kept for the disabled H+ block (Fee rate) in main()
 from export_portfolio import build_portfolio_df, PortfolioWriter
 
 
+# Default run settings -- edit here to change what a plain "python portfolio.py"
+# does. Run with --prompts to be asked interactively instead.
+HARDCODED = dict(
+    live=True,          # True = live TWS (port 7496), False = paper (7497)
+    account="U1281286", # account whose positions to pull ("" = all accounts)
+    md_type=1,          # market data: 1 = live real-time, 4 = delayed (free)
+)
+
+
 def main():
-    port, live = console.prompt_account_mode(config.IB_PORT_PAPER,
-                                             config.IB_PORT_LIVE)
-    account = console.prompt_account_id(default=config.IB_ACCOUNT)
-    md_type = console.prompt_market_data_type(default="1" if live else "2")
+    if "--prompts" in sys.argv[1:]:
+        port, live = console.prompt_account_mode(config.IB_PORT_PAPER,
+                                                 config.IB_PORT_LIVE)
+        account = console.prompt_account_id(default=config.IB_ACCOUNT)
+        md_type = console.prompt_market_data_type(default="1" if live else "2")
+    else:
+        live = HARDCODED["live"]
+        port = config.IB_PORT_LIVE if live else config.IB_PORT_PAPER
+        account = HARDCODED["account"]
+        md_type = HARDCODED["md_type"]
+        print("Hardcoded settings: "
+              f"{'LIVE' if live else 'paper'} TWS (port {port}), "
+              f"account {account or 'ALL'}, "
+              f"{'real-time' if md_type == 1 else 'delayed'} market data.\n"
+              "(Run \"python portfolio.py --prompts\" to choose interactively.)")
     try:
         with connection.connect(port=port) as ib:
             ib.reqMarketDataType(md_type)
