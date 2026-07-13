@@ -13,6 +13,7 @@ import csv
 from datetime import datetime, timedelta
 
 import config
+import order_exec
 
 _COLUMNS = [
     "Action", "Quantity", "Symbol", "SecType", "Exchange", "Currency",
@@ -45,7 +46,8 @@ def write_basket_csv(plan, account, expire_minutes=None):
         for leg in plan.selected:
             row = [
                 "SELL", plan.qty_per_leg, plan.ticker, "OPT", "SMART", "USD",
-                "GTD" if expire_minutes else "DAY", "LMT", f"{leg.ask:.6f}",
+                "GTD" if expire_minutes else "DAY", "LMT",
+                f"{order_exec.sell_price(leg):.6f}",
                 account, "FALSE", "",
                 leg.expiry, f"{leg.strike:g}", plan.right,
             ]

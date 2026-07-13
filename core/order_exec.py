@@ -9,6 +9,19 @@ from datetime import datetime, timedelta, timezone
 from ib_async import LimitOrder
 
 
+# Sell limit price. The spec says sell each leg AT ITS ASK -- that code is
+# kept (see sell_price) but currently overridden: every order goes out at a
+# flat 999, an unfillable placeholder so orders can be reviewed/repriced in
+# TWS before anything can execute. Set SELL_PRICE_OVERRIDE = None to restore
+# ask-price selling.
+SELL_PRICE_OVERRIDE = 999.0
+
+
+def sell_price(leg):
+    """The limit price a leg is sold at: the override if set, else its ask."""
+    return SELL_PRICE_OVERRIDE if SELL_PRICE_OVERRIDE is not None else leg.ask
+
+
 def good_till(minutes):
     """IBKR goodTillDate string for `minutes` from now.
 
@@ -53,7 +66,8 @@ def execute_sell_plan(ib, plan, expire_minutes=None, wait=10.0, staged=False,
     else:
         tif = dict(tif="DAY")
     trades = [(leg, ib.placeOrder(leg.contract,
-                                  LimitOrder("SELL", plan.qty_per_leg, leg.ask,
+                                  LimitOrder("SELL", plan.qty_per_leg,
+                                             sell_price(leg),
                                              transmit=not staged,
                                              account=account or "",
                                              orderRef=plan.strategy, **tif)))

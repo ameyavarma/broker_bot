@@ -200,13 +200,19 @@ def print_plan(plan, expire_minutes=None, mode="send", account=None):
     total_premium = 0.0
     for leg in plan.selected:
         mult = float(leg.contract.multiplier or 100)
-        premium = plan.qty_per_leg * leg.ask * mult
+        price = order_exec.sell_price(leg)
+        premium = plan.qty_per_leg * price * mult
         total_premium += premium
         print(f"    SELL {plan.qty_per_leg:>4}  {plan.ticker} {_expiry(leg.expiry)} "
-              f"{leg.strike:g} {right_word}   LMT {leg.ask:.2f}"
+              f"{leg.strike:g} {right_word}   LMT {price:.2f}"
               f"   (premium if filled ~ ${premium:,.0f})")
     print(f"  Total: {plan.qty_per_leg * n} contracts, "
-          f"~${total_premium:,.0f} premium if everything fills at the ask.")
+          f"~${total_premium:,.0f} premium if everything fills at the limit.")
+    if order_exec.SELL_PRICE_OVERRIDE is not None:
+        print(f"  *** SELL PRICE OVERRIDE ACTIVE: every limit is a flat "
+              f"{order_exec.SELL_PRICE_OVERRIDE:g}, NOT the ask ***\n"
+              "  *** -- placeholder orders; reprice in TWS before "
+              "transmitting for real. ***")
     if expire_minutes:
         cancel_at = datetime.now() + timedelta(minutes=expire_minutes)
         print(f"  Unfilled orders auto-cancel {expire_minutes} minutes after "
